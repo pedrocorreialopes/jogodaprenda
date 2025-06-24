@@ -1,0 +1,317 @@
+
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Prenda</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            min-height: 100vh;
+        }
+        
+        .number-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+        }
+        
+        .number-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .number-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .number-btn:disabled {
+            opacity: 0.6;
+            background: #9ca3af !important;
+            cursor: not-allowed;
+            position: relative;
+        }
+        
+        .number-btn:disabled::after {
+            content: "✓";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            color: white;
+        }
+        
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f00;
+            border-radius: 50%;
+            animation: fall 3s ease-in-out forwards;
+        }
+        
+        @keyframes fall {
+            0% {
+                transform: translateY(-100px) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        
+        .task-card {
+            transform: scale(0);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .task-card.show {
+            transform: scale(1);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4">
+    <div class="w-full max-w-3xl bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-center">
+            <h1 class="text-4xl font-extrabold text-white mb-2">Jogo da Prenda</h1>
+            <p class="text-blue-100 text-lg">Escolha um número de 1 a 50 e descubra sua prenda!</p>
+        </div>
+        
+        <div id="game-container" class="p-6">
+            <div id="selection-container">
+                <div class="mb-4 text-center">
+                    <p class="text-gray-600 italic">Números já escolhidos ficarão desabilitados</p>
+                </div>
+                <div id="number-selection" class="number-grid p-4">
+                    <!-- Números serão gerados pelo JavaScript -->
+                </div>
+            </div>
+            
+            <div id="task-display" class="hidden mt-8 text-center">
+                <div class="task-card bg-gradient-to-r from-yellow-400 to-orange-500 p-6 rounded-xl shadow-lg mx-auto max-w-lg">
+                    <h2 class="text-2xl font-bold text-white mb-2">Prenda #<span id="selected-number"></span></h2>
+                    <div class="bg-white p-5 rounded-lg">
+                        <p id="task-text" class="text-xl font-semibold text-gray-800"></p>
+                    </div>
+                    <button id="back-btn" class="mt-6 bg-white text-purple-600 font-bold py-2 px-6 rounded-full shadow-md hover:bg-purple-50 transition-all">
+                        Voltar
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-gray-100 p-4 border-t border-gray-200">
+            <div class="flex justify-between items-center">
+                <button id="reset-btn" class="text-indigo-600 font-semibold hover:text-indigo-800 transition-colors">
+                    Reiniciar Jogo
+                </button>
+                <p class="text-gray-500 text-sm">
+                    <span id="used-count">0</span> de 50 números usados
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const selectionContainer = document.getElementById('selection-container');
+            const numberSelection = document.getElementById('number-selection');
+            const taskDisplay = document.getElementById('task-display');
+            const selectedNumberEl = document.getElementById('selected-number');
+            const taskTextEl = document.getElementById('task-text');
+            const backBtn = document.getElementById('back-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const usedCountEl = document.getElementById('used-count');
+            const taskCard = document.querySelector('.task-card');
+            
+            // Armazenar números já usados
+            let usedNumbers = [];
+            let currentNumber = null;
+            
+            // Lista de prendas
+            const tasks = [
+                "Imite um animal à sua escolha por 30 segundos!",
+                "Cante o refrão da sua música favorita!",
+                "Faça 10 polichinelos agora mesmo!",
+                "Conte uma piada para todos!",
+                "Dance por 30 segundos sem música!",
+                "Fale como um robô até a próxima rodada!",
+                "Faça uma pose de yoga e mantenha por 15 segundos!",
+                "Imite alguém famoso e os outros devem adivinhar!",
+                "Fale de trás para frente por 30 segundos!",
+                "Faça uma mímica e os outros devem adivinhar!",
+                "Conte uma história engraçada sobre você!",
+                "Faça caretas engraçadas por 20 segundos!",
+                "Recite o alfabeto de trás para frente!",
+                "Finja ser um repórter de TV por 30 segundos!",
+                "Imite o sotaque de outra região por 1 minuto!",
+                "Faça uma declaração poética para um objeto na sala!",
+                "Desenhe algo de olhos fechados!",
+                "Invente uma música curta sobre alguém presente!",
+                "Fale como se estivesse debaixo d'água por 30 segundos!",
+                "Faça uma pose de super-herói e mantenha por 15 segundos!",
+                "Conte até 20 pulando em um pé só!",
+                "Imite o som de três animais diferentes!",
+                "Faça uma propaganda improvisada sobre um objeto próximo!",
+                "Fale em câmera lenta por 30 segundos!",
+                "Invente uma dança com o nome 'Dança do Abacaxi'!",
+                "Responda: Se você fosse um animal, qual seria e por quê?",
+                "Faça uma estátua engraçada e fique imóvel por 20 segundos!",
+                "Cante 'Parabéns pra Você' como se fosse uma ópera!",
+                "Imite como você seria se tivesse 90 anos!",
+                "Faça uma rima com o nome de três pessoas presentes!",
+                "Conte uma história usando apenas 5 palavras!",
+                "Faça uma pose de balé e mantenha por 15 segundos!",
+                "Imite seu personagem de filme/série favorito!",
+                "Fale como se tivesse acabado de correr uma maratona!",
+                "Faça uma declaração de amor para uma planta ou objeto!",
+                "Invente um slogan para um produto imaginário!",
+                "Faça uma imitação de um apresentador de programa de auditório!",
+                "Cante uma música infantil com voz de rock star!",
+                "Responda: Qual foi a coisa mais embaraçosa que já aconteceu com você?",
+                "Faça uma dança do TikTok ou invente uma!",
+                "Imite como você acorda pela manhã!",
+                "Fale por 30 segundos sem usar a letra 'E'!",
+                "Faça uma pose de moda exagerada para uma foto imaginária!",
+                "Conte uma história de terror em 30 segundos!",
+                "Imite três emojis e os outros devem adivinhar!",
+                "Faça uma propaganda de rádio para um produto absurdo!",
+                "Cante uma música trocando todas as vogais por 'i'!",
+                "Faça uma imitação de um animal em câmera lenta!",
+                "Responda: Se você pudesse ter um superpoder, qual seria?",
+                "Invente e demonstre um exercício físico maluco!"
+            ];
+            
+            // Função para gerar os botões de números
+            function generateNumberButtons() {
+                numberSelection.innerHTML = '';
+                for (let i = 1; i <= 50; i++) {
+                    const btn = document.createElement('button');
+                    btn.className = 'number-btn bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-xl font-bold rounded-lg py-3 hover:from-indigo-600 hover:to-purple-600 shadow-md';
+                    btn.textContent = i;
+                    
+                    // Desabilitar se já foi usado
+                    if (usedNumbers.includes(i)) {
+                        btn.disabled = true;
+                    }
+                    
+                    btn.onclick = function() {
+                        selectNumber(i);
+                    };
+                    numberSelection.appendChild(btn);
+                }
+            }
+            
+            // Inicializar botões
+            generateNumberButtons();
+            
+            // Função para selecionar um número
+            function selectNumber(num) {
+                currentNumber = num;
+                
+                // Mostrar a prenda correspondente
+                selectedNumberEl.textContent = num;
+                
+                // Usar o número como índice (ajustando para base 0)
+                const taskIndex = (num - 1) % tasks.length;
+                taskTextEl.textContent = tasks[taskIndex];
+                
+                // Esconder seleção e mostrar prenda
+                selectionContainer.style.display = 'none';
+                taskDisplay.classList.remove('hidden');
+                
+                // Animar o card da prenda
+                setTimeout(() => {
+                    taskCard.classList.add('show');
+                }, 100);
+                
+                // Criar confetes
+                createConfetti();
+                
+                // Adicionar à lista de números usados
+                if (!usedNumbers.includes(num)) {
+                    usedNumbers.push(num);
+                    updateUsedCount();
+                    saveGameState();
+                }
+            }
+            
+            // Voltar para a seleção de números
+            backBtn.addEventListener('click', () => {
+                taskCard.classList.remove('show');
+                
+                setTimeout(() => {
+                    taskDisplay.classList.add('hidden');
+                    selectionContainer.style.display = 'block';
+                    
+                    // Atualizar os botões para refletir os números usados
+                    generateNumberButtons();
+                }, 300);
+            });
+            
+            // Reiniciar o jogo
+            resetBtn.addEventListener('click', () => {
+                if (confirm('Tem certeza que deseja reiniciar o jogo? Todos os números serão liberados.')) {
+                    usedNumbers = [];
+                    updateUsedCount();
+                    generateNumberButtons();
+                    saveGameState();
+                }
+            });
+            
+            // Atualizar contador de números usados
+            function updateUsedCount() {
+                usedCountEl.textContent = usedNumbers.length;
+            }
+            
+            // Função para criar confetes
+            function createConfetti() {
+                const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+                
+                for (let i = 0; i < 50; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + 'vw';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.width = Math.random() * 10 + 5 + 'px';
+                    confetti.style.height = confetti.style.width;
+                    confetti.style.animationDuration = Math.random() * 3 + 2 + 's';
+                    
+                    document.body.appendChild(confetti);
+                    
+                    // Remover confete após a animação
+                    setTimeout(() => {
+                        confetti.remove();
+                    }, 5000);
+                }
+            }
+            
+            // Salvar estado do jogo
+            function saveGameState() {
+                localStorage.setItem('prendaGameUsedNumbers', JSON.stringify(usedNumbers));
+            }
+            
+            // Carregar estado do jogo
+            function loadGameState() {
+                const savedNumbers = localStorage.getItem('prendaGameUsedNumbers');
+                if (savedNumbers) {
+                    usedNumbers = JSON.parse(savedNumbers);
+                    updateUsedCount();
+                    generateNumberButtons();
+                }
+            }
+            
+            // Carregar estado salvo ao iniciar
+            loadGameState();
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9548142782baf1e1',t:'MTc1MDcyNDYyOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
